@@ -1,0 +1,34 @@
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Build
+build/
+cmake-build-*/
+*.o
+*.so
+*.a
+*.exe
+*.obj
+*.lib
+*.dll
+*.dylib
+
+# Generated
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+Testing/
+
+# Superpowers
+.superpowers/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
