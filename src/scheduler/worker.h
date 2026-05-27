@@ -61,4 +61,10 @@ private:
 // 当前线程正在运行的 Worker (由 Worker::run 设置, 供同步原语使用)
 extern thread_local Worker* t_current_worker;
 
+// 安全入队: 如果在 Worker 线程内则使用当前 Worker, 否则回退到 g_workers[0]
+void worker_enqueue_priority(Coroutine* co);
+
+// 唤醒协程: 设为 READY 并入队
+void worker_wake_coroutine(Coroutine* co);
+
 } // namespace hco

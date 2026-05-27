@@ -34,8 +34,7 @@ void co_cond::signal() {
 
     Coroutine* co = wait_queue_.front();
     wait_queue_.pop();
-    co->state = CoroutineState::READY;
-    t_current_worker->enqueue_priority(co);
+    worker_wake_coroutine(co);
 }
 
 void co_cond::broadcast() {
@@ -43,8 +42,7 @@ void co_cond::broadcast() {
     while (!wait_queue_.empty()) {
         Coroutine* co = wait_queue_.front();
         wait_queue_.pop();
-        co->state = CoroutineState::READY;
-        t_current_worker->enqueue_priority(co);
+        worker_wake_coroutine(co);
     }
 }
 

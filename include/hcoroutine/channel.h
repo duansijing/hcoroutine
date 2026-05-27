@@ -46,8 +46,7 @@ public:
                     if (!recv_wait_.empty()) {
                         Coroutine* recver = recv_wait_.front();
                         recv_wait_.pop();
-                        recver->state = CoroutineState::READY;
-                        t_current_worker->enqueue_priority(recver);
+                        worker_wake_coroutine(recver);
                     }
                     return;
                 }
@@ -86,8 +85,7 @@ public:
                     if (!send_wait_.empty()) {
                         Coroutine* sender = send_wait_.front();
                         send_wait_.pop();
-                        sender->state = CoroutineState::READY;
-                        t_current_worker->enqueue_priority(sender);
+                        worker_wake_coroutine(sender);
                     }
                     return true;
                 }
@@ -119,14 +117,12 @@ public:
         while (!send_wait_.empty()) {
             Coroutine* co = send_wait_.front();
             send_wait_.pop();
-            co->state = CoroutineState::READY;
-            t_current_worker->enqueue_priority(co);
+            worker_wake_coroutine(co);
         }
         while (!recv_wait_.empty()) {
             Coroutine* co = recv_wait_.front();
             recv_wait_.pop();
-            co->state = CoroutineState::READY;
-            t_current_worker->enqueue_priority(co);
+            worker_wake_coroutine(co);
         }
     }
 

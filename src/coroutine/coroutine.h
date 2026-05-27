@@ -4,6 +4,7 @@
 // Copyright (c) 2026 HCoroutine
 #pragma once
 
+#include <atomic>
 #include <hcoroutine/types.h>
 #include "stack.h"
 #include "src/common/fcontext/fcontext.h"
@@ -13,7 +14,7 @@ namespace hco {
 struct Coroutine {
     co_handle      id;
     fcontext_t     ctx;
-    CoroutineState state;
+    std::atomic<CoroutineState> state;
     int            priority;
     uint64_t       born_time_ms;
 

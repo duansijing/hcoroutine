@@ -88,7 +88,7 @@ co_handle co_go(std::function<void()> task, co_options opts) {
 void co_join(co_handle h) {
     while (true) {
         Coroutine* co = coroutine_get(h);
-        if (!co || co->state == CoroutineState::DEAD) break;
+        if (!co || co->state.load() == CoroutineState::DEAD) break;
         co_yield();
     }
 }

@@ -67,20 +67,17 @@ void co_rwlock::wake_next() {
 
     if (e.is_writer) {
         state_ = -1;
-        e.co->state = CoroutineState::READY;
-        t_current_worker->enqueue_priority(e.co);
+        worker_wake_coroutine(e.co);
     } else {
         // 唤醒连续的所有读者
         state_ = 1;
-        e.co->state = CoroutineState::READY;
-        t_current_worker->enqueue_priority(e.co);
+        worker_wake_coroutine(e.co);
 
         while (!wait_queue_.empty() && !wait_queue_.front().is_writer) {
             RwWaitEntry re = wait_queue_.front();
             wait_queue_.pop();
             state_++;
-            re.co->state = CoroutineState::READY;
-            t_current_worker->enqueue_priority(re.co);
+            worker_wake_coroutine(re.co);
         }
     }
 }

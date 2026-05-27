@@ -40,7 +40,6 @@ add_library(hcoroutine STATIC
     src/sync/cond.cpp
     src/sync/rwlock.cpp
     src/sync/waitgroup.cpp
-    src/sync/channel.cpp
     src/io/timer_wheel.cpp
     src/io/reactor.cpp
     src/io/io.cpp

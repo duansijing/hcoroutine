@@ -32,8 +32,7 @@ void co_mutex::unlock() {
         Coroutine* next = wait_queue_.front();
         wait_queue_.pop();
         owner_ = next;
-        next->state = CoroutineState::READY;
-        t_current_worker->enqueue_priority(next);
+        worker_wake_coroutine(next);
         return;
     }
 
