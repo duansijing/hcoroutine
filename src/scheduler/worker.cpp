@@ -7,7 +7,7 @@
 #include "src/common/fcontext/fcontext.h"
 #include "src/coroutine/coroutine.h"
 #include <functional>
-#include <cstdlib>
+#include <random>
 #include <thread>
 #include <algorithm>
 
@@ -104,7 +104,7 @@ void Worker::run() {
         uint64_t now = now_ms();
         auto expired = timers_.poll(now);
         for (auto* co : expired) {
-            co->state = CoroutineState::READY;
+            co->state.store(CoroutineState::READY);
             enqueue_priority(co);
         }
 
@@ -119,14 +119,14 @@ void Worker::run() {
         }
 
         if (co) {
-            if (co->state == CoroutineState::DEAD) {
+            if (co->state.load() == CoroutineState::DEAD) {
                 coroutine_destroy(co);
                 continue;
             }
 
             coroutine_resume(co);
 
-            if (co->state == CoroutineState::SUSPENDED) {
+            if (co->state.load() == CoroutineState::SUSPENDED) {
                 if (co->reason == SuspendReason::YIELD) {
                     enqueue_priority(co);
                 } else if (co->reason == SuspendReason::SLEEP) {
@@ -135,14 +135,16 @@ void Worker::run() {
                     reactor_.add(co->wait_fd, EPOLLIN | EPOLLOUT, co);
                 }
                 // MUTEX/COND/CHANNEL 由 waker 负责唤醒
-            } else if (co->state == CoroutineState::DEAD) {
+            } else if (co->state.load() == CoroutineState::DEAD) {
                 coroutine_destroy(co);
             }
+            // state 为 READY 时: waker 已在 coroutine_suspend 之前唤醒了协程,
+            // 协程已重新入队, 此处无需额外处理
         } else {
             // 3. 轮询 Reactor, 唤醒 I/O 就绪的协程
             auto io_ready = reactor_.poll(0);  // 非阻塞轮询
             for (auto* c : io_ready) {
-                c->state = CoroutineState::READY;
+                c->state.store(CoroutineState::READY);
                 enqueue_priority(c);
             }
 
@@ -163,10 +165,25 @@ void Worker::run() {
     t_current_worker = nullptr;
 }
 
+// 安全入队: 回退到 g_workers[0] 当在非 Worker 线程调用时
+void worker_enqueue_priority(Coroutine* co) {
+    if (t_current_worker) {
+        t_current_worker->enqueue_priority(co);
+    } else if (!g_workers.empty()) {
+        g_workers[0]->enqueue_priority(co);
+    }
+}
+
+void worker_wake_coroutine(Coroutine* co) {
+    co->state.store(CoroutineState::READY);
+    worker_enqueue_priority(co);
+}
+
 // 工作窃取: 从其他 Worker 随机窃取任务
 void worker_steal_from_others(Worker* self, Coroutine*& out) {
     if (g_workers.empty()) return;
-    size_t victim_idx = rand() % g_workers.size();
+    thread_local std::mt19937 rng(std::random_device{}());
+    size_t victim_idx = rng() % g_workers.size();
     Worker* victim = g_workers[victim_idx];
     if (victim != self) {
         victim->steal(out);

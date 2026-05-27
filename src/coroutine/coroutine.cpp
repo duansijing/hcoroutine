@@ -21,8 +21,7 @@ static co_handle g_next_id = 1;
 static thread_local Coroutine* t_current = nullptr;
 
 // ---- fcontext 入口回调 ----
-// 声明为 SysV ABI: jump_fcontext 通过 RDI/RSI 传参
-__attribute__((sysv_abi))
+HCO_SYSV_ABI
 static void coroutine_entry(transfer_t t) {
     Coroutine* self = static_cast<Coroutine*>(t.data);
 
@@ -33,7 +32,7 @@ static void coroutine_entry(transfer_t t) {
     if (self->task) {
         self->task();
     }
-    self->state = CoroutineState::DEAD;
+    self->state.store(CoroutineState::DEAD);
 
     // 跳回调度器
     jump_fcontext(self->ctx, nullptr);
@@ -58,7 +57,7 @@ Coroutine* coroutine_create(std::function<void()> task, const co_options& opts) 
 }
 
 void coroutine_resume(Coroutine* co) {
-    co->state = CoroutineState::RUNNING;
+    co->state.store(CoroutineState::RUNNING);
     t_current = co;
     // 通过 data 参数传递 Coroutine* 指针, 供 coroutine_entry 使用
     transfer_t t = jump_fcontext(co->ctx, co);
@@ -69,11 +68,12 @@ void coroutine_resume(Coroutine* co) {
 
 void coroutine_suspend() {
     Coroutine* self = t_current;
-    self->state = CoroutineState::SUSPENDED;
+    CoroutineState expected = CoroutineState::RUNNING;
+    self->state.compare_exchange_strong(expected, CoroutineState::SUSPENDED);
+    // 如果 CAS 失败, 说明 waker 已将 state 设为 READY — 仍切换到调度器, 但保持 READY 状态
     transfer_t t = jump_fcontext(self->ctx, nullptr);
-    // 恢复执行时回到这里, 保存调度器上下文供下次挂起使用
     self->ctx = t.fctx;
-    self->state = CoroutineState::RUNNING;
+    self->state.store(CoroutineState::RUNNING);
 }
 
 void coroutine_destroy(Coroutine* co) {
